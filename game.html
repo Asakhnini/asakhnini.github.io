@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<title>لعبة المحتال</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<style>
+* {
+    box-sizing: border-box;
+}
+
+body {
+    font-family: Tahoma, Arial, sans-serif;
+    background: #121212;
+    color: #fff;
+    text-align: center;
+    padding: 20px;
+}
+
+.card {
+    background: #1e1e1e;
+    padding: 20px;
+    border-radius: 12px;
+    max-width: 440px;
+    margin: auto;
+    box-shadow: 0 0 15px rgba(0,0,0,0.5);
+}
+
+input, select, textarea, button {
+    width: 100%;
+    padding: 12px;
+    margin-top: 10px;
+    border-radius: 8px;
+    border: none;
+    font-size: 16px;
+}
+
+input, textarea, select {
+    background: #2a2a2a;
+    color: #fff;
+    text-align: center;
+}
+
+button {
+    background: #3b82f6;
+    color: #fff;
+    font-weight: bold;
+    cursor: pointer;
+}
+
+button:hover {
+    background: #2563eb;
+}
+
+.hidden {
+    display: none;
+}
+
+textarea {
+    resize: none;
+    height: 90px;
+}
+
+.row {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+}
+
+.plus-btn {
+    width: 50px;
+    background: #16a34a;
+    font-size: 22px;
+}
+
+.plus-btn:hover {
+    background: #15803d;
+}
+
+.danger {
+    background: #dc2626;
+}
+
+.danger:hover {
+    background: #b91c1c;
+}
+
+.secondary {
+    background: #6b7280;
+}
+</style>
+</head>
+
+<body>
+
+<!-- إعداد اللعبة -->
+<div class="card" id="setup">
+    <h2>🎭 لعبة المحتال</h2>
+
+    <input type="number" id="playerCount" min="3" placeholder="عدد اللاعبين (3 أو أكثر)">
+
+    <div class="row">
+        <select id="topicSelect">
+            <option value="">اختر الموضوع</option>
+        </select>
+        <button class="plus-btn" onclick="openTopicEditor()">＋</button>
+    </div>
+
+    <button onclick="createPlayerInputs()">التالي</button>
+</div>
+
+<!-- إدارة المواضيع -->
+<div class="card hidden" id="topicEditor">
+    <h2>📝 إدارة المواضيع</h2>
+
+    <select id="editTopicSelect" onchange="loadTopicForEdit()"></select>
+
+    <input type="text" id="topicName" placeholder="اسم الموضوع">
+    <textarea id="topicWords" placeholder="الكلمات (افصل بينها بفاصلة , )"></textarea>
+
+    <button onclick="saveTopic()">💾 حفظ / تعديل</button>
+    <button class="danger" onclick="deleteTopic()">🗑️ حذف الموضوع</button>
+    <button class="secondary" onclick="closeTopicEditor()">⬅ رجوع</button>
+</div>
+
+<!-- أسماء اللاعبين -->
+<div class="card hidden" id="players">
+    <h2>أدخل أسماء اللاعبين</h2>
+    <div id="playerInputs"></div>
+    <button onclick="startGame()">ابدأ اللعبة</button>
+</div>
+
+<!-- الكشف -->
+<div class="card hidden" id="reveal">
+    <h2 id="currentPlayer"></h2>
+    <button onclick="showRole()">إظهار</button>
+</div>
+
+<!-- النتيجة -->
+<div class="card hidden" id="result">
+    <h2 id="resultText"></h2>
+    <button onclick="nextPlayer()">اللاعب التالي</button>
+</div>
+
+<script>
+let players = [];
+let imposterIndex = 0;
+let secretWord = "";
+let currentIndex = 0;
+
+let topics = {
+    "حيوانات": ["أسد", "فيل", "زرافة", "نمر", "قطة", "كلب"],
+    "فواكه": ["تفاح", "موز", "برتقال", "مانجا"],
+    "دول": ["الأردن", "مصر", "المغرب", "اليابان"]
+};
+
+function refreshTopicLists() {
+    const topicSelect = document.getElementById("topicSelect");
+    const editSelect = document.getElementById("editTopicSelect");
+
+    topicSelect.innerHTML = `<option value="">اختر الموضوع</option>`;
+    editSelect.innerHTML = `<option value="">موضوع جديد</option>`;
+
+    for (let t in topics) {
+        topicSelect.innerHTML += `<option value="${t}">${t}</option>`;
+        editSelect.innerHTML += `<option value="${t}">${t}</option>`;
+    }
+}
+refreshTopicLists();
+
+function openTopicEditor() {
+    document.getElementById("setup").classList.add("hidden");
+    document.getElementById("topicEditor").classList.remove("hidden");
+}
+
+function closeTopicEditor() {
+    document.getElementById("topicEditor").classList.add("hidden");
+    document.getElementById("setup").classList.remove("hidden");
+}
+
+function loadTopicForEdit() {
+    const selected = document.getElementById("editTopicSelect").value;
+
+    if (!selected) {
+        document.getElementById("topicName").value = "";
+        document.getElementById("topicWords").value = "";
+        return;
+    }
+
+    document.getElementById("topicName").value = selected;
+    document.getElementById("topicWords").value = topics[selected].join(", ");
+}
+
+function saveTopic() {
+    const name = document.getElementById("topicName").value.trim();
+    const words = document.getElementById("topicWords").value
+        .split("،")
+        .map(w => w.trim())
+        .filter(w => w);
+
+    if (!name || words.length < 2) {
+        alert("أدخل اسم الموضوع وكلمتين على الأقل");
+        return;
+    }
+
+    topics[name] = words;
+    refreshTopicLists();
+    alert("تم الحفظ بنجاح ✅");
+}
+
+function deleteTopic() {
+    const selected = document.getElementById("editTopicSelect").value;
+    if (!selected) {
+        alert("اختر موضوعًا للحذف");
+        return;
+    }
+
+    if (confirm("هل أنت متأكد من حذف الموضوع؟")) {
+        delete topics[selected];
+        refreshTopicLists();
+        loadTopicForEdit();
+    }
+}
+
+function createPlayerInputs() {
+    const count = document.getElementById("playerCount").value;
+    const topic = document.getElementById("topicSelect").value;
+
+    if (count < 3) {
+        alert("الحد الأدنى 3 لاعبين");
+        return;
+    }
+    if (!topic) {
+        alert("اختر موضوعًا");
+        return;
+    }
+
+    document.getElementById("setup").classList.add("hidden");
+    document.getElementById("players").classList.remove("hidden");
+
+    const container = document.getElementById("playerInputs");
+    container.innerHTML = "";
+
+    for (let i = 0; i < count; i++) {
+        container.innerHTML += `<input type="text" placeholder="اسم اللاعب ${i+1}">`;
+    }
+}
+
+function startGame() {
+    const inputs = document.querySelectorAll("#playerInputs input");
+    players = Array.from(inputs).map(i => i.value || "لاعب");
+
+    const topic = document.getElementById("topicSelect").value;
+    const list = topics[topic];
+
+    secretWord = list[Math.floor(Math.random() * list.length)];
+    imposterIndex = Math.floor(Math.random() * players.length);
+
+    document.getElementById("players").classList.add("hidden");
+    document.getElementById("reveal").classList.remove("hidden");
+
+    currentIndex = 0;
+    updateReveal();
+}
+
+function updateReveal() {
+    document.getElementById("currentPlayer").innerText =
+        players[currentIndex] + " 👈 اضغط لعرض دورك";
+}
+
+function showRole() {
+    document.getElementById("reveal").classList.add("hidden");
+    document.getElementById("result").classList.remove("hidden");
+
+    document.getElementById("resultText").innerText =
+        currentIndex === imposterIndex
+        ? "🚨 أنت المحتال!"
+        : "✅ الكلمة هي: " + secretWord;
+}
+
+function nextPlayer() {
+    document.getElementById("result").classList.add("hidden");
+    currentIndex++;
+
+    if (currentIndex < players.length) {
+        document.getElementById("reveal").classList.remove("hidden");
+        updateReveal();
+    } else {
+        document.getElementById("reveal").innerHTML =
+            "<h2>🎉 جميع اللاعبين جاهزون!</h2>";
+        document.getElementById("reveal").classList.remove("hidden");
+    }
+}
+</script>
+
+</body>
+</html>
